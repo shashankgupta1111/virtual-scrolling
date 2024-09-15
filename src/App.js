@@ -1,52 +1,39 @@
 import React, { useEffect, useRef, useState } from "react"; // Import necessary React hooks
-import axios from "axios"; // Import Axios for making HTTP requests
+import data from "./data.json"; // Import the JSON data directly
 import "./App.css"; // Import CSS styles for the component
 
-const TOTAL_PAGES = 100; // Define the total number of pages for pagination
+const TOTAL_PAGES = Math.ceil(data.length / 30); // Calculate total pages based on data length and limit
 
 // Main App component
 const App = () => {
   // State variables
-  const [loading, setLoading] = useState(true); // Indicates if data is being loaded
+  const [loading, setLoading] = useState(false); // Indicates if data is being loaded
   const [allUsers, setAllUsers] = useState([]); // Stores the fetched user data
   const [pageNum, setPageNum] = useState(1); // Current page number for pagination
   const [lastElement, setLastElement] = useState(null); // Reference to the last element for infinite scrolling
   const [selectedLanguage, setSelectedLanguage] = useState(""); // Holds the selected language for filtering
 
-  // Create a ref for the intersection observer
-  const observer = useRef(
-    new IntersectionObserver((entries) => {
-      const first = entries[0];
-      // If the last element is intersecting, increment the page number
-      if (first.isIntersecting) {
-        setPageNum((no) => no + 1);
-      }
-    })
-  );
+  // Function to filter and paginate user data
+  const getFilteredData = () => {
+    // Filter the data based on selected language
+    const filteredData = selectedLanguage
+      ? data.filter(user => user.language.toLowerCase() === selectedLanguage.toLowerCase())
+      : data;
 
-  // Function to fetch user data from the API
-  const callUser = async () => {
-    setLoading(true); // Set loading state to true
-    try {
-      // Make a GET request to the API with pagination and language filter
-      const response = await axios.get(
-        `http://localhost:4000/items?page=${pageNum}&limit=30&language=${selectedLanguage}`
-      );
-      // Combine new users with existing users using a Set to avoid duplicates
-      let all = new Set([...allUsers, ...response.data]);
-      setAllUsers([...all]); // Update the state with combined users
-    } catch (error) {
-      console.error("Error fetching users:", error); // Log any errors
-    } finally {
-      setLoading(false); // Set loading state to false
-    }
+    // Calculate pagination
+    const limit = 30; // Define the limit per page
+    const startIndex = (pageNum - 1) * limit; // Calculate the starting index
+    const endIndex = startIndex + limit; // Calculate the ending index
+
+    return filteredData.slice(startIndex, endIndex); // Return the sliced data
   };
 
-  // useEffect to call the API when pageNum or selectedLanguage changes
+  // useEffect to update users based on page number and selected language
   useEffect(() => {
-    if (pageNum <= TOTAL_PAGES) {
-      callUser(); // Fetch users if the current page is within limits
-    }
+    setLoading(true); // Set loading state to true
+    const users = getFilteredData(); // Get filtered and paginated data
+    setAllUsers((prev) => [...prev, ...users]); // Append new users to existing users
+    setLoading(false); // Set loading state to false
   }, [pageNum, selectedLanguage]);
 
   // useEffect to observe the last element for infinite scrolling
@@ -66,6 +53,17 @@ const App = () => {
     };
   }, [lastElement]);
 
+  // Create a ref for the intersection observer
+  const observer = useRef(
+    new IntersectionObserver((entries) => {
+      const first = entries[0];
+      // If the last element is intersecting, increment the page number
+      if (first.isIntersecting && !loading && pageNum < TOTAL_PAGES) {
+        setPageNum((no) => no + 1); // Increment page number only if conditions are met
+      }
+    })
+  );
+
   // Function to handle language selection change
   const handleLanguageChange = (event) => {
     setSelectedLanguage(event.target.value); // Update selected language
@@ -83,11 +81,11 @@ const App = () => {
         </div>
         <div className="user-card-body">
           <p className="user-id">ID: {data.id}</p>
-          <p className="user-bio">{data.bio?.slice(0,50)}{'.'}</p>
+          <p className="user-bio">{data.bio?.slice(0, 50)}{'.'}</p>
         </div>
         <div className="user-card-footer">
           <p className="user-version">Version: {data.version}</p>
-          <p className="user-version">Item No: {index + 1}</p>
+         <p className="user-version">Item No: {index + 1}</p>
         </div>
       </div>
     );
@@ -124,7 +122,7 @@ const App = () => {
         {/* Map through all users and render UserCard components */}
         {allUsers.length > 0 &&
           allUsers.map((user, i) => {
-            return i === allUsers.length - 1 && !loading && pageNum <= TOTAL_PAGES ? (
+            return i === allUsers.length - 1 && !loading ? (
               <div key={`${user.id}-${i}`} ref={setLastElement}>
                 <UserCard data={user} index={i} />
               </div>
