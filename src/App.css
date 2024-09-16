@@ -120,3 +120,36 @@ body {
 .filter-container select:hover {
   border-color: #007bff;
 }
+
+
+/* Responsive table */
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: px; /* Space the table */
+}
+
+.user-table th, .user-table td {
+  border: 1px solid #ddd;
+  padding: 12px; /* Increased padding for better readability */
+  text-align: left; /* Align text to the left */
+}
+
+.user-table th {
+  background-color: #f2f2f2; /* Light grey background for table headers */
+  font-weight: bold; /* Bold text for headers */
+}
+
+.user-table tr:nth-child(even) {
+  background-color: #f9f9f9; /* Alternating row colors for better readability */
+}
+
+.user-table tr:hover {
+  background-color: #f1f1f1; /* Highlight row on hover */
+}
+
+/* Responsive table styling */
+.table-responsive {
+  overflow-x: auto; /* Enable horizontal scroll if table is too wide */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on touch devices */
+}

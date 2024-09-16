@@ -1,77 +1,65 @@
-import React, { useEffect, useRef, useState } from "react"; // Import necessary React hooks
-import data from "./data.json"; // Import the JSON data directly
-import "./App.css"; // Import CSS styles for the component
+import React, { useEffect, useRef, useState } from "react";
+import data from "./data.json";
+import "./App.css";
 
-const TOTAL_PAGES = Math.ceil(data.length / 30); // Calculate total pages based on data length and limit
+const TOTAL_ITEMS_PER_PAGE = 30;
 
-// Main App component
 const App = () => {
-  // State variables
-  const [loading, setLoading] = useState(false); // Indicates if data is being loaded
-  const [allUsers, setAllUsers] = useState([]); // Stores the fetched user data
-  const [pageNum, setPageNum] = useState(1); // Current page number for pagination
-  const [lastElement, setLastElement] = useState(null); // Reference to the last element for infinite scrolling
-  const [selectedLanguage, setSelectedLanguage] = useState(""); // Holds the selected language for filtering
+  const [loading, setLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
+  const [pageNum, setPageNum] = useState(0);
+  const [selectedLanguage, setSelectedLanguage] = useState("");
+  const [isTableView, setIsTableView] = useState(false);
 
-  // Function to filter and paginate user data
+  const cardLastElementRef = useRef(null);
+  const tableLastElementRef = useRef(null);
+
   const getFilteredData = () => {
-    // Filter the data based on selected language
-    const filteredData = selectedLanguage
-      ? data.filter(user => user.language.toLowerCase() === selectedLanguage.toLowerCase())
+    return selectedLanguage
+      ? data.filter((user) => user.language.toLowerCase() === selectedLanguage.toLowerCase())
       : data;
-
-    // Calculate pagination
-    const limit = 30; // Define the limit per page
-    const startIndex = (pageNum - 1) * limit; // Calculate the starting index
-    const endIndex = startIndex + limit; // Calculate the ending index
-
-    return filteredData.slice(startIndex, endIndex); // Return the sliced data
   };
 
-  // useEffect to update users based on page number and selected language
   useEffect(() => {
-    setLoading(true); // Set loading state to true
-    const users = getFilteredData(); // Get filtered and paginated data
-    setAllUsers((prev) => [...prev, ...users]); // Append new users to existing users
-    setLoading(false); // Set loading state to false
+    const filteredData = getFilteredData();
+    const startIndex = (pageNum - 1) * TOTAL_ITEMS_PER_PAGE;
+    const endIndex = startIndex + TOTAL_ITEMS_PER_PAGE;
+
+    setAllUsers((prev) => [...prev, ...filteredData.slice(startIndex, endIndex)]);
   }, [pageNum, selectedLanguage]);
 
-  // useEffect to observe the last element for infinite scrolling
   useEffect(() => {
-    const currentElement = lastElement; // Get the last element reference
-    const currentObserver = observer.current; // Get the current observer
+    const currentElement = isTableView ? tableLastElementRef.current : cardLastElementRef.current;
+    const currentObserver = observer.current;
 
     if (currentElement) {
-      currentObserver.observe(currentElement); // Start observing the last element
+      currentObserver.observe(currentElement);
     }
 
-    // Cleanup function to unobserve the last element
     return () => {
       if (currentElement) {
         currentObserver.unobserve(currentElement);
       }
     };
-  }, [lastElement]);
+  }, [isTableView, tableLastElementRef, cardLastElementRef]);
 
-  // Create a ref for the intersection observer
   const observer = useRef(
     new IntersectionObserver((entries) => {
       const first = entries[0];
-      // If the last element is intersecting, increment the page number
-      if (first.isIntersecting && !loading && pageNum < TOTAL_PAGES) {
-        setPageNum((no) => no + 1); // Increment page number only if conditions are met
+      const filteredData = getFilteredData();
+
+      if (first.isIntersecting && !loading && pageNum * TOTAL_ITEMS_PER_PAGE < filteredData.length) {
+        setPageNum((no) => no + 1);
       }
     })
   );
 
-  // Function to handle language selection change
   const handleLanguageChange = (event) => {
-    setSelectedLanguage(event.target.value); // Update selected language
-    setPageNum(1); // Reset page number to 1
-    setAllUsers([]); // Clear existing users to fetch new data based on the new filter
+    setSelectedLanguage(event.target.value);
+    setPageNum(1);
+    setAllUsers([]);
   };
 
-  // UserCard component to display individual user information
   const UserCard = ({ data, index }) => {
     return (
       <div className="user-card">
@@ -85,16 +73,35 @@ const App = () => {
         </div>
         <div className="user-card-footer">
           <p className="user-version">Version: {data.version}</p>
-         <p className="user-version">Item No: {index + 1}</p>
+          <p className="user-version">Item No: {index + 1}</p>
         </div>
       </div>
     );
   };
 
-  // Render the main application UI
+  const TableRow = ({ user, index }) => (
+    <tr>
+      <td>{index + 1}</td>
+      <td>{user.name}</td>
+      <td>{user.language}</td>
+      <td>{user.id}</td>
+      <td>{typeof user.version === 'string' ? user.version : JSON.stringify(user.version)}</td>
+    </tr>
+  );
+
+  const toggleView = () => {
+    setIsTableView((prev) => !prev);
+  };
+
   return (
     <div className="app-container">
       <h1 className="app-title">All Users</h1>
+
+      <div className="view-toggle-container">
+        <button onClick={toggleView}>
+          {isTableView ? "Switch Card View" : "Switch to Table View"}
+        </button>
+      </div>
 
       <div className="filter-container">
         <label htmlFor="language-filter">Filter by Language:</label>
@@ -103,7 +110,6 @@ const App = () => {
           value={selectedLanguage}
           onChange={handleLanguageChange}
         >
-          {/* Language selection options */}
           <option value="">All Languages</option>
           <option value="Icelandic">Icelandic</option>
           <option value="Hindi">Hindi</option>
@@ -118,26 +124,47 @@ const App = () => {
         </select>
       </div>
 
-      <div className="user-grid">
-        {/* Map through all users and render UserCard components */}
-        {allUsers.length > 0 &&
-          allUsers.map((user, i) => {
-            return i === allUsers.length - 1 && !loading ? (
-              <div key={`${user.id}-${i}`} ref={setLastElement}>
-                <UserCard data={user} index={i} />
-              </div>
-            ) : (
-              <UserCard data={user} key={`${user.id}-${i}`} index={i} />
-            );
-          })}
-      </div>
-      {loading && <p className="loading-text">Loading...</p>} {/* Loading text */}
-
-      {pageNum - 1 === TOTAL_PAGES && (
-        <p className="end-message">? All users loaded ?</p> // Message indicating all users have been loaded
+      {isTableView ? (
+        <div className="table-responsive">
+          <table className="user-table">
+            <thead>
+              <tr>
+                <th>Item No</th>
+                <th>Name</th>
+                <th>Language</th>
+                <th>ID</th>
+                <th>Version</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allUsers.length > 0 &&
+                allUsers.map((user, i) => (
+                  <TableRow key={`${user.id}-${i}`} user={user} index={i} />
+                ))}
+              <tr ref={tableLastElementRef}></tr>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="user-grid">
+          {allUsers.length > 0 &&
+            allUsers.map((user, i) => {
+              return i === allUsers.length - 1 && !loading ? (
+                <div key={`${user.id}-${i}`}>
+                  <UserCard data={user} index={i} />
+                </div>
+              ) : (
+                <UserCard data={user} key={`${user.id}-${i}`} index={i} />
+              );
+            })}
+            <div ref={cardLastElementRef} />
+        </div>
       )}
+
+      {loading && <p className="loading-text">Loading...</p>}
+      {pageNum * TOTAL_ITEMS_PER_PAGE >= getFilteredData().length && <p className="end-message">? All users loaded ?</p>}
     </div>
   );
 };
 
-export default App; // Export the App component
+export default App;
